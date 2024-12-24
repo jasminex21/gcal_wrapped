@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+# Extras
+.ipynb_checkpoints/
+.virtual_documents/
+credentials.json
+
 # Distribution / packaging
 .Python
 build/
