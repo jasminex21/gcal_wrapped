@@ -1,0 +1,117 @@
+--- 
+title: "My Google Calendar Wrapped"
+format: dashboard
+--- 
+
+```{python}
+from gcsa.google_calendar import GoogleCalendar
+from datetime import datetime, timedelta
+import pandas as pd
+import plotly.graph_objects as go
+import calendar as cal
+
+calendar = GoogleCalendar('jasminexu@utexas.edu')
+
+START = datetime(2024, 1, 1)
+END = datetime(2024, 12, 31)
+
+LABEL_MAP = {
+    "1": "Gym",
+    "2": "Event",
+    "3": "Family/Friends",
+    "4": None,
+    "5": "Appointments",
+    "6": "Recruitment",
+    "7": None,
+    "8": "Developing", 
+    "9": "Entertainment", 
+    "10": None,
+    "11": "Work",
+    None: "Default"
+}
+
+palette_map = {
+    "Default": "#446a46",
+    "Family/Friends": "#8e24aa",
+    "Event": "#33b679",
+    "Gym": "#7986cb",
+    "Recruitment": "#f4511e",
+    "Developing": "#616161",
+    "Appointments": "#f6bf26",
+    "Work": "#d50000", 
+    "Entertainment": "#3f51b5"
+}
+
+EVENTS = []
+for event in calendar.get_events(calendar_id="jasminexu@utexas.edu", 
+                                 time_min=START,
+                                 time_max=END): 
+
+    if (event.summary != None) and (event.organizer.email == "jasminexu@utexas.edu"):
+
+        event_info = {
+            "name": event.summary,
+            "label": LABEL_MAP[event.color_id],
+            "start": event.start,
+            "end": event.end,
+            "hours": (event.end - event.start).seconds / 3600,
+            "minutes": (event.end - event.start).seconds / 60,
+            "location": event.location
+        }
+
+        EVENTS.append(event_info)
+
+events_df = pd.DataFrame(EVENTS)
+```
+
+## Row {height=60%}
+
+```{python}
+#| title: Personal Calendar Time Distribution by Label 
+labels = events_df.groupby("label")[["minutes", "hours"]].sum()
+
+colors = [palette_map[lab] for lab in labels.index]
+fig = go.Figure(data=[go.Pie(labels=labels.index, 
+                             values=labels["minutes"], 
+                             hole=.2,
+                             marker=dict(colors=colors,
+                                         line=dict(color="black", width=1)),
+                             hovertemplate=('<b>%{label}</b><br>' 
+                                            'Minutes: %{value}<br>' 
+                                            'Pct.: %{percent:.2%}<br>' 
+                                            '<extra></extra>'))])
+#fig.update_layout(title = "Time Distribution by Label")
+fig.update_layout(showlegend=True)
+```
+
+## Row {.tabset}
+
+```{python}
+#| title: Gym Sessions by Day of Week
+gym_dict = [d for d in EVENTS if d["label"] == "Gym"]
+
+weekday_dict = dict(zip([i for i in cal.day_name], [0] * 7))
+
+for dic in gym_dict: 
+    
+    day_of_week = cal.day_name[dic["start"].weekday()]
+    weekday_dict[day_of_week] += 1
+
+week_colors = ["#C96868", "#FFAD60", "#FADFA1", "#96CEB4", "#B7C9F2", "#D8B4F8", "#F8BDEB"]
+
+fig = go.Figure([go.Bar(x=list(weekday_dict.keys()), 
+                        y=list(weekday_dict.values()),
+                        marker=dict(color=week_colors,
+                                    line=dict(color="black", width=1.5)))],
+                layout=dict(barcornerradius=15))
+
+fig.show()
+```
+
+```{python}
+#| title: Life Expectancy
+# px.line(
+#   df, x="year", y="lifeExp", 
+#   color="continent", line_group="country"
+# )
+```

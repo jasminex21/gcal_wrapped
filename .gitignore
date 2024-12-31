@@ -10,6 +10,7 @@ __pycache__/
 .ipynb_checkpoints/
 .virtual_documents/
 credentials.json
+token.pickle
 
 # Distribution / packaging
 .Python
