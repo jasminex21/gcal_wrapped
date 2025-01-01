@@ -141,33 +141,6 @@ locations = labeled_blocks.groupby("location")[["minutes", "hours"]].sum().sort_
 campus_locations = locations.loc[["WCP", "EER", "PCL", "Fine Arts Library", "McKinney Engineering Library", "Welch", "Life Sciences Library", "GDC", "ECJ", "FAC", "JGB"]]
 campus_locations = campus_locations.reset_index().round(2)
 
-ff = events_df[events_df["label"] == "Family/Friends"]
-
-people = []
-names = ['Hannah', 'Lauren', 'Alex', 'Kenadi', 'Andrew',    'Authencia', 'Liang', 'Logan', 'Luke', 
-         'Aley', 'Batyr', 'Jiant', 'Justin', 'Anthony', 'Elsa', 'Marisa', 'Jennifer', 'Waipo', 
-         'Chang', 'Maddie', 'Priyansh', 'Nick', 'Jasmine', 'Mommy', '外婆外公', 'Flora', 'Chenlu',
-         'Emma', 'Jenny', 'Kaitlyn', 'Abby', 'Anjie', 'Olivia', 'Dylan', "Aley's"]
-
-for entry in ff["name"]: 
-    entry = re.sub(r'[^\w\s]','', entry)
-    for word in entry.split():
-        if word in names: 
-            people.append(word)
-
-text = " ".join(people)
-word_data = WordCloud(stopwords=set(['s']),
-               max_words=200,
-               max_font_size=100, 
-               collocations=False).generate(text).words_
-
-# Convert the word_data dictionary to a list of dictionaries with 'tag' and 'weight'
-word_data_list = [{'tag': name, 'weight': weight} for name, weight in word_data.items()]
-div_by = min(word_data.values())
-
-# Convert the list to a JSON string
-word_data_json = json.dumps(word_data_list)
-
 def label_dev(title):
     patterns = {
         "tayLyrics": r'\btayLyrics\b',
