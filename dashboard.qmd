@@ -1,6 +1,11 @@
 --- 
 title: "My Google Calendar Wrapped"
-format: dashboard
+format: 
+  dashboard:
+    orientation: rows
+theme:
+  - cosmo
+  - theme.scss
 --- 
 
 ```{python}
@@ -9,8 +14,12 @@ from datetime import datetime, timedelta
 import pandas as pd
 import plotly.graph_objects as go
 import calendar as cal
+import re
+import json
+from wordcloud import WordCloud
 
-calendar = GoogleCalendar('jasminexu@utexas.edu')
+calendar = GoogleCalendar('jasminexu@utexas.edu',
+                          credentials_path="credentials.json")
 
 START = datetime(2024, 1, 1)
 END = datetime(2024, 12, 31)
@@ -62,13 +71,132 @@ for event in calendar.get_events(calendar_id="jasminexu@utexas.edu",
         EVENTS.append(event_info)
 
 events_df = pd.DataFrame(EVENTS)
+gym_dict = [d for d in EVENTS if d["label"] == "Gym"]
+
+blocks_id = "c_6a07e60a3e4530f1e890d77388f33ab8c7f6df1d78006011680e9548e2a1fb24@group.calendar.google.com"
+
+BLOCKS = []
+for e in calendar.get_events(calendar_id=blocks_id,
+                                 time_min=START,
+                                 time_max=END): 
+    if e.summary != None:
+        e_info = {
+            "name": e.summary,
+            "label": e.color_id,
+            "start": e.start,
+            "end": e.end,
+            "hours": (e.end - e.start).seconds / 3600,
+            "minutes": (e.end - e.start).seconds / 60,
+            "location": e.location
+        }
+        BLOCKS.append(e_info)
+
+def label_event(title):
+    patterns = {
+        "Class: GOV 310L": r'\b(?:Govt\.|GOV 310L|Govt)\b',
+        "Class: SDS 334": r'\b(?:Stats|stats|Statistics|SDS 334)\b',
+        "Class: LIN 371": r'\b(?:Linguistics|LIN|tweet|tweets)\b',
+        "Class: SDS 375": r'\bData viz\b',
+        "Class: CS 327E": r'\bDatabases\b',
+        "Class: CS 326E": r'\b(?:Networking|C S 326E)\b',
+        "Class: CS 309": r'\bC S 309\b',
+        "Class: SDS 336": r'\bSDS 336\b',
+        "Research": r'\bResearch\b',
+        "MLDS": r'\b(?:MLDS|OOEF|invoice|Order .+|Order)\b',
+        "Developing": r'\b(?:lyrics|tayLyrics|lyriguessr|journal_analysis|taylor_naive_bayes|Encyclopedia|waterparks|internship_database|waterparksGuessr|internshipDatabase)\b',
+        "Recruitment": r'\b(?:LinkedIn|Interview|apps\.|Internship apps\.|internship|internships|apps)\b',
+        "Lockheed": r'\b(?:sklz|aero gsc|Aero GSC|LM)\b',
+        "Miscellaneous": r'\b(?:Miscellaneous|Misc\.|Misc|Misc.)\b',
+    }
+
+    for label, pattern in patterns.items():
+        if re.search(pattern, title, re.IGNORECASE): 
+            return label
+    return "Miscellaneous"
+
+labeled_blocks = []
+
+for block in BLOCKS:
+
+    block["category"] = label_event(block["name"])
+    labeled_blocks.append(block)
+
+labeled_blocks = pd.DataFrame(labeled_blocks)
+
+labeled_blocks.loc[labeled_blocks["location"].isin(['PCL 4.424', 'PCL 4.110', 
+                                                    'PCL 3.110', 'PCL w/ Christine and Anjie', "PCL 4th",
+                                                    'Perry-Castañeda Library, 101 E 21st St, Austin, TX 78712, USA']), 'location'] = "PCL"
+labeled_blocks.loc[labeled_blocks["location"].isin(["WCP ", 
+                                                    'William C. Powers Student Activity Center, 2201 Speedway, Austin, TX 78712, USA']), 'location'] = "WCP"
+labeled_blocks.loc[labeled_blocks["location"].isin(['EER w/ Hannah', 
+                                                    'Engineering Education and Research Center (EER), 2501 Speedway, Austin, TX 78712, USA']), 'location'] = "EER"
+labeled_blocks.loc[labeled_blocks["location"].isin(['GDC 7th', 'GDC SDS Lounge']), 'location'] = "GDC"
+labeled_blocks.loc[labeled_blocks["location"].isin(['Robert A. Welch Hall, 105 E 24th St, Austin, TX 78712, USA']), 'location'] = "Welch"
+labeled_blocks.loc[labeled_blocks["location"].isin(['Fine Arts Library, 2306 Trinity St, Austin, TX 78712, USA']), 'location'] = "Fine Arts Library"
+labeled_blocks.loc[labeled_blocks["location"].isin(['McKinney Engineering Library, 2501 Speedway, Austin, TX 78712, USA']), 'location'] = "McKinney Engineering Library"
+labeled_blocks.loc[labeled_blocks["location"].isin(['Life Science Library, Main, 2400 Inner Campus Drive #220, Austin, TX 78712, USA']), 'location'] = "Life Sciences Library"
+labeled_blocks.loc[labeled_blocks["location"].isin(['Jackson School of Geoscience (JGB), 305 E 23rd St, Austin, TX 78712, USA']), 'location'] = "JGB"
+labeled_blocks.loc[labeled_blocks["location"].isin(['Peter T. Flawn Academic Center (FAC), 2304 Whitis Ave, Austin, TX 78712, USA']), 'location'] = "FAC"
+locations = labeled_blocks.groupby("location")[["minutes", "hours"]].sum().sort_values("minutes", ascending=False)
+campus_locations = locations.loc[["WCP", "EER", "PCL", "Fine Arts Library", "McKinney Engineering Library", "Welch", "Life Sciences Library", "GDC", "ECJ", "FAC", "JGB"]]
+campus_locations = campus_locations.reset_index().round(2)
+
+ff = events_df[events_df["label"] == "Family/Friends"]
+
+people = []
+names = ['Hannah', 'Lauren', 'Alex', 'Kenadi', 'Andrew',    'Authencia', 'Liang', 'Logan', 'Luke', 
+         'Aley', 'Batyr', 'Jiant', 'Justin', 'Anthony', 'Elsa', 'Marisa', 'Jennifer', 'Waipo', 
+         'Chang', 'Maddie', 'Priyansh', 'Nick', 'Jasmine', 'Mommy', '外婆外公', 'Flora', 'Chenlu',
+         'Emma', 'Jenny', 'Kaitlyn', 'Abby', 'Anjie', 'Olivia', 'Dylan', "Aley's"]
+
+for entry in ff["name"]: 
+    entry = re.sub(r'[^\w\s]','', entry)
+    for word in entry.split():
+        if word in names: 
+            people.append(word)
+
+text = " ".join(people)
+word_data = WordCloud(stopwords=set(['s']),
+               max_words=200,
+               max_font_size=100, 
+               collocations=False).generate(text).words_
+
+# Convert the word_data dictionary to a list of dictionaries with 'tag' and 'weight'
+word_data_list = [{'tag': name, 'weight': weight} for name, weight in word_data.items()]
+div_by = min(word_data.values())
+
+# Convert the list to a JSON string
+word_data_json = json.dumps(word_data_list)
+
+def label_dev(title):
+    patterns = {
+        "tayLyrics": r'\btayLyrics\b',
+        "taylor_naive_bayes": r'\btaylor_naive_bayes\b',
+        "waterparksGuessr": r'\b(waterparksGuessr|waterparks)\b', 
+        "internship_database": r'\b(internship_database|internshipDatabase)\b',
+        "journal_analysis": r'\bjournal_analysis\b',
+        "Encyclopedia": r'\bEncyclopedia\b',
+        "lyriguessr": r'\blyriguessr\b',
+    }
+
+    for label, pattern in patterns.items():
+        if re.search(pattern, title, re.IGNORECASE): 
+            return label
+    return None
+
+developing = labeled_blocks[labeled_blocks["category"] == "Developing"]
+developing['project'] = developing["name"].apply(label_dev)
 ```
+
+# Personal Calendar
 
 ## Row {height=60%}
 
+### Column {width=60%}
 ```{python}
-#| title: Personal Calendar Time Distribution by Label 
+#| title: Time Distribution by Label 
 labels = events_df.groupby("label")[["minutes", "hours"]].sum()
+gymtime = labels.loc[["Gym"]]
 
 colors = [palette_map[lab] for lab in labels.index]
 fig = go.Figure(data=[go.Pie(labels=labels.index, 
@@ -84,12 +212,18 @@ fig = go.Figure(data=[go.Pie(labels=labels.index,
 fig.update_layout(showlegend=True)
 ```
 
-## Row {.tabset}
+### Column {height="60%"}
+::: {.card title="Your People"}
+Names from Family/Friends events
+```{=html}
+<iframe src="interactive_wordcloud.html" height="100%" width="100%"></iframe>
+```
+:::
 
+## Row
+::: {.card title="Gym Summary"}
+You spent `{python} '{:,}'.format(int(gymtime['minutes'].values[0]))` minutes (`{python} round(gymtime['hours'].values[0], 2)` hours) across `{python} len(gym_dict)` sessions at the gym. Get a life. And some bitches. Lmao.
 ```{python}
-#| title: Gym Sessions by Day of Week
-gym_dict = [d for d in EVENTS if d["label"] == "Gym"]
-
 weekday_dict = dict(zip([i for i in cal.day_name], [0] * 7))
 
 for dic in gym_dict: 
@@ -108,10 +242,70 @@ fig = go.Figure([go.Bar(x=list(weekday_dict.keys()),
 fig.show()
 ```
 
+:::
+
+# Blocks Calendar
+
+## Row
+
+### Column {width=60%}
 ```{python}
-#| title: Life Expectancy
-# px.line(
-#   df, x="year", y="lifeExp", 
-#   color="continent", line_group="country"
-# )
+#| title: Blocks Calendar Time Distribution by Label 
+grouped_blocks = labeled_blocks.groupby("category")[["minutes", "hours"]].sum()
+
+fig = go.Figure(data=[go.Pie(labels=grouped_blocks.index, 
+                             values=grouped_blocks["minutes"], 
+                             hole=.2,
+                             marker=dict(line=dict(color="black", width=2)),
+                             hovertemplate=('<b>%{label}</b><br>' 
+                                            'Minutes: %{value}<br>' 
+                                            'Pct.: %{percent:.2%}<br>' 
+                                            '<extra></extra>'))])
+# fig.update_layout(title = "Time Distribution by Label")
+fig.update_layout(showlegend=True)
 ```
+
+### Column {width=40%}
+::: {.card title="Time spent on Campus" height=60%}
+Your favorite location on campus was **`{python} campus_locations.iloc[[0]]["location"].values[0]`**, where you spent `{python} '{:,}'.format(int(campus_locations.iloc[[0]]["minutes"].values[0]))` minutes (`{python} round(campus_locations['hours'].values[0], 2)` hours). 
+```{python}
+fig = go.Figure(data=[
+    go.Table(
+        header=dict(
+            values=["<b>Location</b>", "<b>Minutes</b>", "<b>Hours</b>"],
+            fill_color="lightblue",
+            align="center",
+            font=dict(color="black", size=12)
+        ),
+        cells=dict(
+            values=[
+                campus_locations["location"], 
+                campus_locations["minutes"], 
+                campus_locations["hours"]
+            ],
+            fill_color="white",
+            #align="center",
+            font=dict(color="black", size=11)
+        )
+    )
+])
+fig.show()
+```
+:::
+
+::: {.card title="Time spent Developing by Project"}
+```{python}
+dev_time = developing[~developing["project"].isna()].groupby("project")[["minutes", "hours"]].sum().sort_values("minutes", ascending=False)
+
+fig = go.Figure([go.Bar(x=dev_time.index, 
+                        y=dev_time["minutes"],
+                        marker=dict(# color=week_colors,
+                                    line=dict(color="black", width=1.5)), 
+                        hovertemplate=('<b>%{label}</b><br>' 
+                                        'Minutes: %{value}<br>' 
+                                        '<extra></extra>'))],
+                layout=dict(barcornerradius=15))
+fig.show()
+```
+
+:::
