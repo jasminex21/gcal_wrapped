@@ -1,0 +1,22 @@
+h3, h2, h1, strong, h4 {
+    font-weight: 700 !important;
+}
+
+h1 {
+    font-size: xx-large;
+}
+
+body, p {
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.nav-footer-left p, .nav-footer-right p {
+    font-size: 15px;
+}
+
+.nav-footer {
+    align-items: center;
+    min-height: fit-content;
+    padding: 0;
+}

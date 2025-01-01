@@ -6,4 +6,4 @@ format:
   html:
     theme: 
       light: [cosmo, theme.scss]
-    toc: true
+    css: styles.css 
