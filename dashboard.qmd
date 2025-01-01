@@ -3,9 +3,9 @@ title: "My Google Calendar Wrapped"
 format: 
   dashboard:
     orientation: rows
-theme:
-  - cosmo
-  - theme.scss
+# theme:
+#   - cosmo
+#   - theme.scss
 --- 
 
 ```{python}

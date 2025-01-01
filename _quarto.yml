@@ -4,6 +4,5 @@ project:
 
 format:
   html:
-    theme: 
-      light: [cosmo, theme.scss]
+    theme: [cosmo, theme.scss]
     css: styles.css 
